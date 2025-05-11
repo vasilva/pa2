@@ -8,7 +8,7 @@ def get_memory_usage():
 
     Returns
     -------
-        int: Memory usage in bytes.
+        int: The current memory usage in bytes.
     """
     return psutil.Process().memory_info().rss
 
@@ -47,7 +47,7 @@ def parse_args():
         type=str,
         required=False,
         help="The path to the directory where indexes should be written.",
-        default="index.txt",
+        default="index.json",
     )
     return parser.parse_args()
 
@@ -72,7 +72,4 @@ def term_frequency(vocabulary: dict, token: str, total_count: int) -> float:
 
     TODO: Call it in query.py file, after indexing
     """
-    if token in vocabulary:
-        return vocabulary[token] / total_count
-    else:
-        return 0.0
+    return (vocabulary[token] / total_count) if token in vocabulary else 0.0

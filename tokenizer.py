@@ -9,6 +9,8 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 
+from re import sub
+
 
 class Tokenizer:
     """
@@ -21,8 +23,6 @@ class Tokenizer:
         """
         self.stop_words = set(stopwords.words(language))
         self.stemmer = SnowballStemmer(language)
-        self.vocabulary = dict()
-        self.total_count = 0
 
     def __len__(self):
         """
@@ -46,24 +46,6 @@ class Tokenizer:
         """
         return str(self.vocabulary)
 
-    def add_to_vocabulary(self, tokens: list[str]):
-        """
-        Add a token to the vocabulary.
-
-        Parameters
-        ----------
-        tokens: list[str]
-            The list of tokens to be added to the vocabulary.
-        """
-        for token in tokens:
-            if token not in self.vocabulary:
-                self.vocabulary[token] = 1
-
-            else:
-                self.vocabulary[token] += 1
-
-            self.total_count += 1
-
     def tokenize_text(self, text: str):
         """
         Tokenize the input text and return a list of tokens.
@@ -85,25 +67,15 @@ class Tokenizer:
         words_filtered = []
         for word in words:
             stemmed_words = []
-            if word not in self.stop_words:
+            if word.lower() not in self.stop_words:
                 stemmed_word = self.stemmer.stem(word)
+                stemmed_word = sub("([\\'\".?,-/])", r" \1", stemmed_word)
+                stemmed_word = stemmed_word.replace("/", " ")
                 stemmed_word = stemmed_word.replace("\\", " ")
                 stemmed_word = stemmed_word.replace("-", " ")
+                stemmed_word = stemmed_word.replace("–", " ")
                 stemmed_words.extend(stemmed_word.split())
-            
+
             words_filtered.extend(stemmed_words)
 
         return words_filtered
-
-    def get_vocabulary(self):
-        """
-        Get the vocabulary of tokens.
-
-        Returns
-        -------
-        Vocabulary
-            The vocabulary of tokens.
-
-        TODO: Call it in the indexer.py file, after tokenization
-        """
-        return self.vocabulary
