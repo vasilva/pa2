@@ -1,9 +1,21 @@
 # Download NLTK resources if not already downloaded
 from nltk import download
+from nltk.data import find
 
-download("punkt", quiet=True)
-download("punkt_tab", quiet=True)
-download("stopwords", quiet=True)
+try:
+    find("tokenizers/punkt")
+except LookupError:
+    download("punkt")
+
+try:
+    find("tokenizers/punkt_tab")
+except LookupError:
+    download("punkt_tab")
+
+try:
+    find("corpora/stopwords")
+except LookupError:
+    download("stopwords")
 
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -20,7 +32,13 @@ class Tokenizer:
     def __init__(self, language: str = "english"):
         """
         Initialize the Tokenizer with NLTK resources.
+
+        Parameters
+        ----------
+        language : str
+            The language to be used for tokenization. Default is "english".
         """
+        self.language = language
         self.stop_words = set(stopwords.words(language))
         self.stemmer = SnowballStemmer(language)
 
@@ -60,22 +78,30 @@ class Tokenizer:
         -------
         list[str]
             A list of tokens extracted from the input text.
-
-        TODO: Call it in the indexer.py file, multithreaded
         """
-        words = word_tokenize(text)
-        words_filtered = []
+        words = word_tokenize(text, self.language)
+        filtered_words, stemmed_words = [], []
         for word in words:
-            stemmed_words = []
-            if word.lower() not in self.stop_words:
-                stemmed_word = self.stemmer.stem(word)
-                stemmed_word = sub("([\\'\".?,-/])", r" \1", stemmed_word)
-                stemmed_word = stemmed_word.replace("/", " ")
-                stemmed_word = stemmed_word.replace("\\", " ")
-                stemmed_word = stemmed_word.replace("-", " ")
-                stemmed_word = stemmed_word.replace("–", " ")
-                stemmed_words.extend(stemmed_word.split())
+            word = word.replace("/", " ")
+            word = word.replace("\\", " ")
+            word = word.replace("-", " ")
+            word = word.replace("–", " ")
 
-            words_filtered.extend(stemmed_words)
+            if "." in word and len(word) > 1:
+                word = word.replace(".", " ")
+            if "," in word and len(word) > 1:
+                word = word.replace(",", " ")
+            if ":" in word and len(word) > 1:
+                word = word.replace(":", " ")
+            if ";" in word and len(word) > 1:
+                word = word.replace(";", " ")
 
-        return words_filtered
+            filtered_words.extend(word.split())
+
+        stemmed_words = [
+            self.stemmer.stem(word)
+            for word in filtered_words
+            if word not in self.stop_words
+        ]
+
+        return stemmed_words
