@@ -41,9 +41,9 @@ class Indexer:
         batch_size: int
             The number of documents to be processed in each batch.
         max_doc: int
-            The maximum number of documents to be processed. If -1, process all documents.
+            The maximum number of documents to be processed.
         """
-        self.memory = memory * 1024 * 1024
+        self.memory = memory * 1024 * 1024 # MB to B
         self.corpus = corpus_path
         self.index_path = index_path
         self.tokenizer = Tokenizer()
@@ -89,24 +89,29 @@ class Indexer:
                 )
                 self.docs_len[doc["id"]] = doc_len
                 data[i % len(data)].append(doc)
-
-                if len(data[-1]) >= self.batch_size or i == self.max_doc:
-                    # Process batch
+                
+                # Process batch
+                if len(data[-1]) >= self.batch_size or i == self.max_doc:    
+                    # Memory limit test
                     max_heap = [-x for x in self.memory_usage]
                     max_mem = heapq.heappop(max_heap)
+                    self.n_lists += 1
                     if -max_mem > self.memory:
                         raise MemoryError(
                             f"Out of memory: {max_mem // (1024 * 1024)} MB used."
                         )
 
-                    self.n_lists += 1
+                    # Get the partial index
                     index = self.process_batch(data)
                     index_part = dict(sorted(self.merge_index(index).items()))
                     data = [[] for _ in range(N_THREADS)]
+                    
+                    # Write in the JSON file
                     self.write_index(index_part, self.n_lists - 1)
                     self.n_postings += self.get_postings(index_part)
                     heapq.heappush(self.memory_usage, get_memory_usage())
 
+        # Save the documents size
         with open("data/info.json", "w") as f:
             json.dump(self.docs_len, f)
 
@@ -132,7 +137,7 @@ class Indexer:
         with ThreadPoolExecutor(max_workers=len(data)) as executor:
             futures = [executor.submit(self.process_documents, batch) for batch in data]
 
-            # Wait for all futures to complete
+            # Wait for all threads to complete
             for future in as_completed(futures):
                 try:
                     partial_index, vocabulary = future.result()
@@ -141,7 +146,8 @@ class Indexer:
 
                 except Exception(f"Thread {future} failed to produce result"):
                     continue
-
+            
+            # Update the vocabulary
             for vocab in vocab_results:
                 self.vocabulary.merge(vocab)
 
@@ -162,8 +168,8 @@ class Indexer:
             A tuple containing the inverted index and the vocabulary.
         """
         indexes, vocabularies = [], []
+        # Create a partial inverted index for the document
         for doc in docs_list:
-            # Create a partial inverted index for the document
             partial_inverted_index, vocabulary = self.make_partial_index(doc)
             indexes.append(partial_inverted_index)
             vocabularies.append(vocabulary)
@@ -190,6 +196,7 @@ class Indexer:
             A tuple containing the inverted index and the vocabulary.
         """
         # Tokenize the title, text, and keywords
+        # Keywords are added twice to give them more weight
         doc_id = int(doc["id"])
         document = str(
             doc["title"]
@@ -202,6 +209,7 @@ class Indexer:
         )
         tokens = self.tokenizer.tokenize_text(document)
         inverted_index = dict()
+        
         # Add the tokens to the vocabulary
         vocabulary = Vocabulary()
         vocabulary.add(tokens)
@@ -258,20 +266,22 @@ class Indexer:
         dict
             The line of the inverted index for the word.
         """
+        # If the vocabulary is empty, read it from the file
         if not self.vocabulary:
-            # If the vocabulary is empty, read it from the file
             self.vocabulary.read_vocabulary()
 
         if word not in self.vocabulary:
             return None
 
         word_index = []
+        # Read each partial index file
         parts = listdir(self.index_path)
         for i in range(len(parts)):
             partial_index = self.read_index(i)
             if word in partial_index:
                 word_index.append(partial_index[word])
-
+        
+        # Merge all partial indexes
         sorted_word_index = dict(
             sorted(
                 self.merge_index(word_index).items(),
@@ -317,6 +327,9 @@ class Indexer:
             return json.load(f)
 
     def get_postings(self, index: dict):
+        """
+        Get the average number of postings of an index.
+        """
         n_postings = 0
         for word_list in index:
             n_postings += len(word_list)
@@ -325,7 +338,12 @@ class Indexer:
 
     def print_results(self):
         """
-        Print a JSON document to the standard output.
+        Print a JSON document to the standard output with the following statistics:
+
+        * `Index Size`: the index size in megabytes;
+        * `Elapsed Time`: the time elapsed (in seconds) to produce the index;
+        * `Number of Lists`: the number of inverted lists in the index;
+        * `Average List Size`: the average number of postings per inverted lists.
         """
         index = get_files_size(self.index_path)
         avls = self.n_postings / self.n_lists

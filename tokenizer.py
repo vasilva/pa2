@@ -41,25 +41,9 @@ class Tokenizer:
         self.stemmer = SnowballStemmer(language)
 
     def __len__(self):
-        """
-        Return the size of the vocabulary.
-
-        Returns
-        -------
-        int
-            The size of the vocabulary.
-        """
         return len(self.vocabulary)
 
     def __str__(self):
-        """
-        Return a string representation of the vocabulary.
-
-        Returns
-        -------
-        str
-            A string representation of the vocabulary.
-        """
         return str(self.vocabulary)
 
     def tokenize_text(self, text: str):
@@ -80,11 +64,13 @@ class Tokenizer:
         words = word_tokenize(text, self.language)
         filtered_words, stemmed_words = [], []
         for word in words:
+            # Remove and separate words with '/\-_' characteres
             word = word.replace("/", " ")
             word = word.replace("\\", " ")
             word = word.replace("-", " ")
             word = word.replace("–", " ")
 
+            # Remove if it's between two words
             if "." in word and len(word) > 1:
                 word = word.replace(".", " ")
             if "," in word and len(word) > 1:
@@ -96,6 +82,7 @@ class Tokenizer:
 
             filtered_words.extend(word.split())
 
+        # Stem and stopwords
         stemmed_words = [
             self.stemmer.stem(word)
             for word in filtered_words
