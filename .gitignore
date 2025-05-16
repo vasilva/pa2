@@ -1,6 +1,4 @@
 .venv
 corpus.jsonl
 index
-info.json
-vocabulary.json
 test*
