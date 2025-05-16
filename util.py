@@ -116,9 +116,9 @@ def parse_args(program: str, required=True):
     return parser.parse_args()
 
 
-def TF(word_count: int) -> float:
+def TF_1(word_count: int) -> float:
     """
-    Get the term frequency of a token.
+    Get the term frequency of a token using tf = log(1+c(w,d)).
 
     Parameters
     ----------
@@ -131,6 +131,23 @@ def TF(word_count: int) -> float:
         The term frequency of the token.
     """
     return np.log(1 + word_count)
+
+
+def TF_2(word_count: int) -> float:
+    """
+    Get the term frequency of a token using tf = log(1+log(1+c(w,d))).
+
+    Parameters
+    ----------
+    word_count: int
+        The number of times the token appears in the document.
+
+    Returns
+    -------
+    float
+        The term frequency of the token.
+    """
+    return np.log(1 + np.log(1 + word_count))
 
 
 def IDF(n_total: int, n_word: int) -> float:

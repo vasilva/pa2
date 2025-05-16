@@ -47,8 +47,10 @@ class Processor:
             self.ranker = self._tfidf
         elif ranker.lower() == "bm25":
             self.ranker = self._bm25
+        elif ranker.lower() == "plnvsm":
+            self.ranker = self._plnvsm
         else:
-            raise ValueError("Ranker must be 'TFIDF' or 'BM25'")
+            raise ValueError("Ranker must be 'TFIDF', 'BM25' of 'PLNVSM'")
 
         with open("info.json", "r") as f:
             self.docs_info = json.load(f, object_hook=dict)
@@ -114,11 +116,46 @@ class Processor:
                 else:
                     word_count = 0
 
-                tf = TF(word_count)
+                tf = TF_1(word_count)
                 idf = IDF(len(self.docs_info), len(index))
                 tf_idf += tf * idf
 
         return float(tf_idf)
+
+    def _plnvsm(self, query: list[str], doc_id: str, indexes: dict) -> float:
+        """
+        Calculate the Pivoted Length Normalization VSM score for a given query.
+
+        Parameters
+        ----------
+        query: list[str]
+            List of words from the query.
+        doc_id: str
+            The ID of the document in which to calculate the BM25 score.
+        index: dict
+            The indexes of the words of the query.
+
+        Returns
+        -------
+        float
+            The PLN VSM score for the query for the document.
+        """
+        plm_vsm = 0.0
+        doc_len = self.docs_info[doc_id.zfill(7)]
+        for word in query:
+            index = indexes[word]
+            if index:
+                if doc_id in index:
+                    word_count = index[doc_id]
+                else:
+                    word_count = 0
+
+            tf = TF_2(word_count)
+            idf = IDF(len(self.docs_info), len(index))
+            pln = PLN(self.b, doc_len, self.average_doc_len)
+            plm_vsm += tf * idf / pln
+
+        return float(plm_vsm)
 
     def _bm25(self, query: list[str], doc_id: str, indexes: dict) -> float:
         """
@@ -150,9 +187,7 @@ class Processor:
 
                 idf = IDF(len(self.docs_info), len(index))
                 pln = PLN(self.b, doc_len, self.average_doc_len)
-                bm_25 += (
-                    ((self.k1 + 1) * word_count) / (word_count + self.k1 * pln) * idf
-                )
+                bm_25 += (self.k1 + 1) * word_count * idf / (word_count + self.k1 * pln)
 
         return float(bm_25)
 
