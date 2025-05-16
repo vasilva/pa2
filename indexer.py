@@ -107,7 +107,7 @@ class Indexer:
                     self.n_postings += self.get_postings(index_part)
                     heapq.heappush(self.memory_usage, get_memory_usage())
 
-        with open("info.json", "w") as f:
+        with open("data/info.json", "w") as f:
             json.dump(self.docs_len, f)
 
         self.timer = time.monotonic() - self.timer

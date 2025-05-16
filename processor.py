@@ -52,7 +52,7 @@ class Processor:
         else:
             raise ValueError("Ranker must be 'TFIDF', 'BM25' of 'PLNVSM'")
 
-        with open("info.json", "r") as f:
+        with open("data/info.json", "r") as f:
             self.docs_info = json.load(f, object_hook=dict)
             self.average_doc_len = np.mean(list(self.docs_info.values()))
 

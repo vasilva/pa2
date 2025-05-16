@@ -6,14 +6,14 @@ class Vocabulary:
     Class to handle vocabulary operations.
     """
 
-    def __init__(self, file_path: str = "vocabulary.json"):
+    def __init__(self, file_path: str = "data/vocabulary.json"):
         """
         Initialize the Vocabulary with an empty dictionary.
 
         Parameters
         ----------
         file_path : str
-            The path to the vocabulary file. Default is "vocabulary.json".
+            The path to the vocabulary file. Default is "data/vocabulary.json".
         """
         self.vocabulary = dict()
         self.total_count = 0
