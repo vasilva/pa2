@@ -3,29 +3,9 @@ from tokenizer import Tokenizer
 from vocabulary import Vocabulary
 from indexer import Indexer
 import heapq
-
-import json
-from util import (
-    get_memory_usage,
-    IDF,
-    parse_args,
-    PLN,
-    TF as TF,
-)
-
-import time
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import cpu_count, listdir, makedirs, path
-
-n_threads = 10
-
-json_format = {
-    "Query": "",
-    "Results": [
-        {"ID": 0, "Score": 0.0},
-    ],
-}
+import json
+from util import *
 
 
 class Processor:
@@ -35,10 +15,9 @@ class Processor:
 
     def __init__(
         self,
-        ranker,
-        index,
-        query="queries.txt",
-        memory=1024,
+        ranker: str,
+        index_path: str,
+        query: str = "queries.txt",
         k1: float = 1.2,
         b: float = 0.75,
     ):
@@ -51,19 +30,23 @@ class Processor:
             The ranking function to be used for scoring documents. Must be either 'TFIDF' or 'BM25'.
         query: str
             The path to the file containing the queries to be processed.
+        k1: float
+            Hyper-parameter for the BM25 score.
+        b: float
+            Hyper-parameter for the Pivoted Length Normalization.
         """
         self.query_file = query
-        self.memory = memory
-        self.index_path = index
-        self.queries = []
+        self.index_path = index_path
         self.vocabulary = Vocabulary()
         self.vocabulary.read_vocabulary()
         self.k1 = k1
         self.b = b
+        self.results = []
+
         if ranker.lower() == "tfidf":
-            self.ranker = self.tfidf
+            self.ranker = self._tfidf
         elif ranker.lower() == "bm25":
-            self.ranker = self.bm25
+            self.ranker = self._bm25
         else:
             raise ValueError("Ranker must be 'TFIDF' or 'BM25'")
 
@@ -71,22 +54,20 @@ class Processor:
             self.docs_info = json.load(f, object_hook=dict)
             self.average_doc_len = np.mean(list(self.docs_info.values()))
 
-    def read_query(self):
-        """
-        Read the queries from the query file and store them in a list.
-        """
+        self.tokenized_queries = []
         with open(self.query_file, "r") as f:
+            self.queries = f.readlines()
             tokenizer = Tokenizer()
-            for line in f:
-                self.queries.append(tokenizer.tokenize_text(line))
+            for query in self.queries:
+                self.tokenized_queries.append(tokenizer.tokenize_text(query))
 
-    def print_query(self, i=0):
+    def print_query(self, i: int = 0):
         """
         Print the queries to the console.
         """
         if i >= len(self.queries):
-            print("No more queries to print.")
             return
+
         query = self.queries[i]
         print(f"Query {i}: {query}")
 
@@ -106,7 +87,7 @@ class Processor:
         """
         return Indexer().get_line(word)
 
-    def tfidf(self, query: list[str], doc_id: str, indexes: dict) -> float:
+    def _tfidf(self, query: list[str], doc_id: str, indexes: dict) -> float:
         """
         Calculate the TF-IDF score for a given query.
 
@@ -128,20 +109,18 @@ class Processor:
         for word in query:
             index = indexes[word]
             if index:
-                if doc_id not in index:
-                    word_count = 0
-                else:
+                if doc_id in index:
                     word_count = index[doc_id]
+                else:
+                    word_count = 0
 
                 tf = TF(word_count)
                 idf = IDF(len(self.docs_info), len(index))
                 tf_idf += tf * idf
-            else:
-                print(f"Word '{word}' not found.")
 
         return float(tf_idf)
 
-    def bm25(self, query: list[str], doc_id: str, indexes: dict) -> float:
+    def _bm25(self, query: list[str], doc_id: str, indexes: dict) -> float:
         """
         Calculate the BM25 score for a given query.
 
@@ -160,23 +139,49 @@ class Processor:
             The BM25 score for the query for the document.
         """
         bm_25 = 0.0
-        doc_len = self.docs_info[doc_id]
+        doc_len = self.docs_info[doc_id.zfill(7)]
         for word in query:
             index = indexes[word]
             if index:
-                if doc_id not in index:
-                    word_count = 0
-                else:
+                if doc_id in index:
                     word_count = index[doc_id]
+                else:
+                    word_count = 0
 
                 idf = IDF(len(self.docs_info), len(index))
                 pln = PLN(self.b, doc_len, self.average_doc_len)
                 bm_25 += (
-                    ((self.k1 + 1) * word_count) / (word_count + self.k1 * pln)
-                ) * idf
-            else:
-                print(f"Word '{word}' not found.")
+                    ((self.k1 + 1) * word_count) / (word_count + self.k1 * pln) * idf
+                )
+
         return float(bm_25)
+
+    def _score(self, target: str, indexes: dict, query: list) -> float:
+        """
+        Calculate the score of the target document.
+
+        Parameters
+        ----------
+        target: str
+            The target document.
+        indexes: dict
+            Word/Index Dictionary
+        query: list
+            The current query
+
+        Returns
+        -------
+        float
+            The score using either TF-IDF or BM25 rankers.
+        """
+        lists = indexes.values()
+        score = 0.0
+        for postings in lists:
+            for doc_id in postings.keys():
+                if doc_id == target:
+                    score += self.ranker(query, doc_id, indexes)
+
+        return score
 
     def daat(self, i: int = 0, top_k: int = 10):
         """
@@ -195,37 +200,65 @@ class Processor:
         list
             The top k results with their doc_ids and scores.
         """
-        results = []
-        lists = [self.get_line(word) for word in self.queries[i]]
-        indexes = dict(zip(self.queries[i], lists))
-        targets = {doc_id for word in self.queries[i] for doc_id in indexes[word]}
+        results, lists = [], []
+        with ThreadPoolExecutor(max_workers=len(self.queries[i])) as executor:
+            futures = [
+                executor.submit(self.get_line, word)
+                for word in self.tokenized_queries[i]
+            ]
+            for future in as_completed(futures):
+                try:
+                    index = future.result()
+                    lists.append(index)
 
-        for target in targets:
-            score = 0
-            for postings in lists:
-                for doc_id in postings.keys():
-                    if doc_id == target:
-                        score += self.ranker(self.queries[i], doc_id, indexes)
+                except Exception:
+                    continue
 
-            if len(results) < top_k:
-                heapq.heappush(results, (score, target))
-            
-            elif score > min_score:
-                heapq.heappop(results)
-                heapq.heappush(results, (score, target))
+            indexes = dict(zip(self.tokenized_queries[i], lists))
+            targets = []
+            for index in indexes.values():
+                targets.append(set(index.keys()))
 
-            min_score = results[0][0] if results else 0
+            # Filter to targets that contain all terms of the query
+            convunctive_targets = set()
+            for j in range(len(targets)):
+                convunctive_targets = targets[0].intersection(targets[j])
 
-        for result in sorted(results, reverse=True):
-            print(f"DocId: {result[1]} - Score: {result[0]}")
+            lists.clear()
+            targets.clear()
 
-        return results
+            for target in convunctive_targets:
+                score = self._score(target, indexes, self.tokenized_queries[i])
+
+                if len(results) < top_k:
+                    heapq.heappush(results, (score, target))
+
+                elif score > min_score:
+                    heapq.heapreplace(results, (score, target))
+
+                min_score = results[0][0] if results else 0.0
+
+        self.results.append(sorted(results, reverse=True))
+
+    def print_results(self, current_query: int):
+        results = self.results[current_query]
+        query = self.queries[current_query]
+
+        print("{ 'Query': '%s'," % query)
+        print("  'Results': [")
+        for result in results:
+            print("    { 'ID': '%s'," % result[1].zfill(7))
+            print("      'Score': %.2f }," % result[0])
+
+        print("  ]")
+        print("}")
 
 
 if __name__ == "__main__":
     mem = [get_memory_usage()]
     args = parse_args("processor")
     processor = Processor(args.Ranker, args.Index, args.Query)
-    processor.read_query()
-    processor.print_query()
-    processor.daat()
+
+    for i in range(len(processor.queries)):
+        processor.daat(i)
+        processor.print_results(i)

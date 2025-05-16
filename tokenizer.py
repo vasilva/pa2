@@ -21,8 +21,6 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 
-from re import sub
-
 
 class Tokenizer:
     """

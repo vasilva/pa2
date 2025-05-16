@@ -1,10 +1,38 @@
+from os import listdir, path
 import psutil
 from argparse import ArgumentParser
 
 import numpy as np
 
 
-def get_memory_usage():
+def get_files_size(dir_path: str) -> int:
+    """
+    Return the size of the files in a directory in Bytes
+
+    Parameters
+    ----------
+    dir_path: str
+        The directory
+
+    Returns
+    -------
+    int
+        The size of all files in Bytes
+    """
+    result = 0
+    files = listdir(dir_path)
+    for f in files:
+        try:
+            file_size = path.getsize(path.join(dir_path, f))
+        except FileNotFoundError:
+            file_size = 0
+
+        result += file_size
+
+    return result
+
+
+def get_memory_usage() -> int:
     """
     Get the current memory usage of the process.
 
@@ -12,10 +40,10 @@ def get_memory_usage():
     -------
         int: The current memory usage in bytes.
     """
-    return psutil.Process().memory_info().rss
+    return int(psutil.Process().memory_info().rss)
 
 
-def parse_args(program: str, required=False):
+def parse_args(program: str, required=True):
     """
     Parse command-line arguments.
 
