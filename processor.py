@@ -279,11 +279,11 @@ class Processor:
         results = self.results[current_query]
         query = self.queries[current_query]
 
-        print("{ 'Query': '%s'," % query)
-        print("  'Results': [")
+        print('{ "Query": "%s",' % query)
+        print('  "Results": [')
         for result in results:
-            print("    { 'ID': '%s'," % result[1].zfill(7))
-            print("      'Score': %.2f }," % result[0])
+            print('    { "ID": "%s",' % result[1].zfill(7))
+            print('      "Score": %.2f },' % result[0])
 
         print("  ]")
         print("}")

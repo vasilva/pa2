@@ -329,10 +329,10 @@ class Indexer:
         """
         index = get_files_size(self.index_path)
         avls = self.n_postings / self.n_lists
-        print("{ 'Index Size': %d," % index)
-        print("  'Elapsed Time': %d," % self.timer)
-        print("  'Number of Lists': %d," % self.n_lists)
-        print("  'Average List Size': %.2f }" % avls)
+        print('{ "Index Size": %d' % index)
+        print('  "Elapsed Time": %d,' % self.timer)
+        print('  "Number of Lists": %d,' % self.n_lists)
+        print('  "Average List Size": %.2f }' % avls)
 
 
 if __name__ == "__main__":
