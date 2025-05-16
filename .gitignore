@@ -2,3 +2,5 @@
 corpus.jsonl
 index
 test*
+vocabulary.json
+info.json
