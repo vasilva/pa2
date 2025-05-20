@@ -12,7 +12,7 @@ class Vocabulary:
 
         Parameters
         ----------
-        file_path : str
+        file_path: str
             The path to the vocabulary file.
         """
         self.vocabulary = dict()
@@ -30,7 +30,7 @@ class Vocabulary:
 
     def __contains__(self, token: str):
         return token in self.vocabulary
-    
+
     def __getitem__(self, word):
         return self.vocabulary[word] if word in self.vocabulary else 0
 
@@ -59,7 +59,7 @@ class Vocabulary:
 
         Returns
         -------
-        bool
+        bool:
             True if the vocabulary was read successfully, False otherwise.
         """
         with open(self.file_path, "r") as f:

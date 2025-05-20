@@ -1,7 +1,6 @@
 from os import listdir, path
 import psutil
 from argparse import ArgumentParser
-
 import numpy as np
 
 
@@ -16,7 +15,7 @@ def get_files_size(dir_path: str) -> int:
 
     Returns
     -------
-    int
+    int:
         The size of all files in Bytes
     """
     result = 0
@@ -38,46 +37,48 @@ def get_memory_usage() -> int:
 
     Returns
     -------
-        int: The current memory usage in bytes.
+    int:
+        The current memory usage in bytes.
     """
     return int(psutil.Process().memory_info().rss)
 
 
-def parse_args(program: str, required=True):
+def parse_args(program: str, required: bool = True):
     """
     Parse command-line arguments.
 
     Parameters
     ----------
-        program: str
-            The program to get the arguments. `'indexer'` or `'processor'`.
-        required: bool
-            Whether the arguments are required or not.
+    program: str
+        The program to get the arguments. `'indexer'` or `'processor'`.
+    required: bool
+        Whether the arguments are required or not.
 
     Returns
     -------
-        argparse.Namespace: Parsed command-line arguments.
+    argparse.Namespace:
+        Parsed command-line arguments.
     """
     if program == "indexer":
         parser = ArgumentParser(
             description="Index a directory of files.",
             usage="python3 indexer.py -m <MEMORY> -c <CORPUS> -i <INDEX>",
         )
+        # Memory argument '-m'
         parser.add_argument(
             "-m",
             "--Memory",
             type=int,
             required=required,
             help="The memory available to the indexer in megabytes.",
-            default=1024,
         )
+        # Corpus argument '-c'
         parser.add_argument(
             "-c",
             "--Corpus",
             type=str,
             required=required,
             help="The path to the corpus file to be indexed.",
-            default="corpus.jsonl",
         )
 
     elif program == "processor":
@@ -85,33 +86,33 @@ def parse_args(program: str, required=True):
             description="Process the queries.",
             usage="python3 processor.py -i <INDEX> -q <QUERIES> -r <RANKER>",
         )
+        # Query argument '-q'
         parser.add_argument(
             "-q",
             "--Query",
             type=str,
             required=required,
             help="The path to a file with the list of queries to process.",
-            default="queries.txt",
         )
+        # Ranker argument '-r'
         parser.add_argument(
             "-r",
             "--Ranker",
             type=str,
             required=required,
             help="A string informing the ranking function (either 'TFIDF' or 'BM25') to be used to score documents for each query.",
-            default="BM25",
         )
 
     else:
         raise ValueError("Program must be 'indexer' or 'processor'")
 
+    # Index argument '-i'
     parser.add_argument(
         "-i",
         "--Index",
         type=str,
         required=required,
         help="The path to the directory of the index files.",
-        default="index",
     )
     return parser.parse_args()
 
@@ -127,7 +128,7 @@ def TF_1(word_count: int) -> float:
 
     Returns
     -------
-    float
+    float:
         The term frequency of the token.
     """
     return np.log(1 + word_count)
@@ -144,7 +145,7 @@ def TF_2(word_count: int) -> float:
 
     Returns
     -------
-    float
+    float:
         The term frequency of the token.
     """
     return np.log(1 + np.log(1 + word_count))
@@ -163,7 +164,7 @@ def IDF(n_total: int, n_word: int) -> float:
 
     Returns
     -------
-    float
+    float:
         The inverse document frequency of the token.
     """
     return np.log((n_total + 1) / n_word) if n_word > 0 else 0.0
@@ -184,7 +185,7 @@ def PLN(b: float, doc_len: int, avdl: float) -> float:
 
     Returns
     -------
-    float
+    float:
         The pivoted length normalization of the document.
     """
     return (1 - b) + b * doc_len / avdl

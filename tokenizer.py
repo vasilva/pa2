@@ -33,7 +33,7 @@ class Tokenizer:
 
         Parameters
         ----------
-        language : str
+        language: str
             The language to be used for tokenization. Default is "english".
         """
         self.language = language
@@ -53,12 +53,12 @@ class Tokenizer:
 
         Parameters
         ----------
-        text : str
+        text: str
             The input text to be tokenized.
 
         Returns
         -------
-        list[str]
+        list[str]:
             A list of tokens extracted from the input text.
         """
         words = word_tokenize(text, self.language)
@@ -88,5 +88,4 @@ class Tokenizer:
             for word in filtered_words
             if word not in self.stop_words
         ]
-
         return stemmed_words

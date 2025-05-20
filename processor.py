@@ -76,7 +76,7 @@ class Processor:
 
         Returns
         -------
-        dict
+        dict:
             The line from the inverted index for the given word.
         """
         return Indexer().get_line(word)
@@ -96,7 +96,7 @@ class Processor:
 
         Returns
         -------
-        float
+        float:
             The TF-IDF score for the query for the document.
         """
         tf_idf = 0.0
@@ -129,7 +129,7 @@ class Processor:
 
         Returns
         -------
-        float
+        float:
             The PLN VSM score for the query for the document.
         """
         plm_vsm = 0.0
@@ -164,7 +164,7 @@ class Processor:
 
         Returns
         -------
-        float
+        float:
             The BM25 score for the query for the document.
         """
         bm_25 = 0.0
@@ -198,7 +198,7 @@ class Processor:
 
         Returns
         -------
-        float
+        float:
             The score using either TF-IDF, BM25 or PLN VSM rankers.
         """
         lists = indexes.values()
@@ -224,7 +224,7 @@ class Processor:
 
         Returns
         -------
-        list
+        list:
             The top k results with their doc_ids and scores.
         """
         results, lists = [], []

@@ -2,7 +2,6 @@ from tokenizer import Tokenizer
 from vocabulary import Vocabulary
 
 import json
-import heapq
 from util import *
 
 import time
@@ -43,7 +42,7 @@ class Indexer:
         max_doc: int
             The maximum number of documents to be processed.
         """
-        self.memory = memory * 1024 * 1024 # MB to B
+        self.memory = memory * 1024 * 1024  # MB to B
         self.corpus = corpus_path
         self.index_path = index_path
         self.tokenizer = Tokenizer()
@@ -62,9 +61,10 @@ class Indexer:
         Parse the corpus file and create an inverted index.
         """
         self.timer = time.monotonic()
-        heapq.heappush(self.memory_usage, get_memory_usage())
+        self.memory_usage.append(get_memory_usage())
         with open(self.corpus, "r", encoding="utf8") as f:
             data = [[] for _ in range(N_THREADS)]
+            indexes = []
             # Read the file line by line
             for i, line in enumerate(f):
                 if self.max_doc < 0:
@@ -89,27 +89,26 @@ class Indexer:
                 )
                 self.docs_len[doc["id"]] = doc_len
                 data[i % len(data)].append(doc)
-                
-                # Process batch
-                if len(data[-1]) >= self.batch_size or i == self.max_doc:    
-                    # Memory limit test
-                    max_heap = [-x for x in self.memory_usage]
-                    max_mem = heapq.heappop(max_heap)
-                    self.n_lists += 1
-                    if -max_mem > self.memory:
-                        raise MemoryError(
-                            f"Out of memory: {max_mem // (1024 * 1024)} MB used."
-                        )
 
-                    # Get the partial index
-                    index = self.process_batch(data)
-                    index_part = dict(sorted(self.merge_index(index).items()))
+                # Process batch
+                if len(data[-1]) >= self.batch_size or i >= self.max_doc:
+                    # Get 8 partials indexes
+                    index_batch = dict(
+                        sorted(self.merge_index(self.process_batch(data)).items())
+                    )
+                    indexes.append(index_batch)
                     data = [[] for _ in range(N_THREADS)]
-                    
-                    # Write in the JSON file
-                    self.write_index(index_part, self.n_lists - 1)
-                    self.n_postings += self.get_postings(index_part)
-                    heapq.heappush(self.memory_usage, get_memory_usage())
+
+                    # Merge the 8 indexes and write in the JSON file
+                    if len(indexes) >= 8 or i >= self.max_doc:
+                        print(f"Index {self.n_lists}")
+                        merged_index = dict(sorted(self.merge_index(indexes).items()))
+                        self.write_index(merged_index, self.n_lists)
+                        self.n_postings += self.get_postings(merged_index)
+                        self.n_lists += 1
+                        indexes.clear()
+                    # Memory used
+                    self.memory_usage.append(get_memory_usage())
 
         # Save the documents size
         with open("data/info.json", "w") as f:
@@ -128,7 +127,7 @@ class Indexer:
 
         Returns
         -------
-        list[dict]
+        list[dict]:
             A list of inverted indexes for each document.
         """
         index_results, vocab_results = [], []
@@ -146,7 +145,7 @@ class Indexer:
 
                 except Exception(f"Thread {future} failed to produce result"):
                     continue
-            
+
             # Update the vocabulary
             for vocab in vocab_results:
                 self.vocabulary.merge(vocab)
@@ -159,12 +158,12 @@ class Indexer:
 
         Parameters
         ----------
-        docs_list : list
+        docs_list: list
             A list of documents to be processed.
 
         Returns
         -------
-        tuple[dict, Vocabulary]
+        tuple[dict, Vocabulary]:
             A tuple containing the inverted index and the vocabulary.
         """
         indexes, vocabularies = [], []
@@ -192,7 +191,7 @@ class Indexer:
 
         Returns
         -------
-        tuple[dict, Vocabulary]
+        tuple[dict, Vocabulary]:
             A tuple containing the inverted index and the vocabulary.
         """
         # Tokenize the title, text, and keywords
@@ -209,7 +208,7 @@ class Indexer:
         )
         tokens = self.tokenizer.tokenize_text(document)
         inverted_index = dict()
-        
+
         # Add the tokens to the vocabulary
         vocabulary = Vocabulary()
         vocabulary.add(tokens)
@@ -235,7 +234,7 @@ class Indexer:
 
         Returns
         -------
-        dict
+        dict:
             The merged inverted index.
         """
         merged_index = dict()
@@ -263,7 +262,7 @@ class Indexer:
 
         Returns
         -------
-        dict
+        dict:
             The line of the inverted index for the word.
         """
         # If the vocabulary is empty, read it from the file
@@ -280,7 +279,7 @@ class Indexer:
             partial_index = self.read_index(i)
             if word in partial_index:
                 word_index.append(partial_index[word])
-        
+
         # Merge all partial indexes
         sorted_word_index = dict(
             sorted(
@@ -319,7 +318,7 @@ class Indexer:
 
         Returns
         -------
-        dict
+        dict:
             The inverted index.
         """
         file_name = f"{self.index_path}/inverted_index_{part}.json"
@@ -329,6 +328,16 @@ class Indexer:
     def get_postings(self, index: dict):
         """
         Get the average number of postings of an index.
+
+        Parameters
+        ----------
+        index: int
+            The index to get the number of postings.
+
+        Returns
+        -------
+        float:
+            The average number of postings of the index.
         """
         n_postings = 0
         for word_list in index:
@@ -345,9 +354,9 @@ class Indexer:
         * `Number of Lists`: the number of inverted lists in the index;
         * `Average List Size`: the average number of postings per inverted lists.
         """
-        index = get_files_size(self.index_path)
+        index = get_files_size(self.index_path) // (1024**2)
         avls = self.n_postings / self.n_lists
-        print('{ "Index Size": %d' % index)
+        print('{ "Index Size": %d,' % index)
         print('  "Elapsed Time": %d,' % self.timer)
         print('  "Number of Lists": %d,' % self.n_lists)
         print('  "Average List Size": %.2f }' % avls)
@@ -355,9 +364,9 @@ class Indexer:
 
 if __name__ == "__main__":
     args = parse_args("indexer")
-    max_memory = args.Memory * 1024 * 1024
+    max_memory = args.Memory * (1024**2)
 
-    batch_size = args.Memory // 4
+    batch_size = args.Memory // 5
     indexer = Indexer(max_memory, args.Corpus, args.Index, batch_size, MAX_DOCS)
     tokenizer = indexer.tokenizer
     vocabulary = indexer.vocabulary
