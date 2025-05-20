@@ -134,6 +134,7 @@ class Processor:
         """
         plm_vsm = 0.0
         doc_len = self.docs_info[doc_id.zfill(7)]
+        pln = PLN(self.b, doc_len, self.average_doc_len)
         for word in query:
             index = indexes[word]
             if index:
@@ -144,7 +145,6 @@ class Processor:
 
             tf = TF_2(word_count)
             idf = IDF(len(self.docs_info), len(index))
-            pln = PLN(self.b, doc_len, self.average_doc_len)
             plm_vsm += tf * idf / pln
 
         return float(plm_vsm)
@@ -169,6 +169,7 @@ class Processor:
         """
         bm_25 = 0.0
         doc_len = self.docs_info[doc_id.zfill(7)]
+        pln = PLN(self.b, doc_len, self.average_doc_len)
         for word in query:
             index = indexes[word]
             if index:
@@ -178,7 +179,6 @@ class Processor:
                     word_count = 0
 
                 idf = IDF(len(self.docs_info), len(index))
-                pln = PLN(self.b, doc_len, self.average_doc_len)
                 bm_25 += (self.k1 + 1) * word_count * idf / (word_count + self.k1 * pln)
 
         return float(bm_25)
@@ -229,9 +229,7 @@ class Processor:
         """
         results, lists = [], []
         # One thread for each word of the query.
-        with ThreadPoolExecutor(
-            max_workers=len(self.queries[current_query])
-        ) as executor:
+        with ThreadPoolExecutor(len(self.queries[current_query])) as executor:
             futures = [
                 executor.submit(self.get_line, word)
                 for word in self.tokenized_queries[current_query]
@@ -279,7 +277,7 @@ class Processor:
         results retrieved for that query according to the following format:
         * `Query`: The query text;
         * `Results`: A list of results.
-        
+
         Each result in the Results list must be represented with the fields:
         * `ID`: The respective result ID;
         * `Score`: The final document score.

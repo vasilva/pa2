@@ -133,7 +133,7 @@ class Indexer:
         index_results, vocab_results = [], []
 
         # Process the documents in parallel
-        with ThreadPoolExecutor(max_workers=len(data)) as executor:
+        with ThreadPoolExecutor(len(data)) as executor:
             futures = [executor.submit(self.process_documents, batch) for batch in data]
 
             # Wait for all threads to complete
