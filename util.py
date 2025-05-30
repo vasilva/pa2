@@ -189,3 +189,19 @@ def PLN(b: float, doc_len: int, avdl: float) -> float:
         The pivoted length normalization of the document.
     """
     return (1 - b) + b * doc_len / avdl
+
+
+def DCG(rank):
+    dcg = 0.0
+    for i in range(1, len(rank) + 1):
+        dcg += rank[i - 1] / np.log2(i + 1)
+    return dcg
+
+
+def iDCG():
+    rank = [1 for _ in range(10)]
+    return DCG(rank)
+
+
+def nDCG(rank):
+    return DCG(rank) / iDCG()
